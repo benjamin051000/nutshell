@@ -25,6 +25,8 @@ int unsetEnv(char*);
 
 int processCommand(void);
 
+void getPaths(char* envStr);
+
 // argument list: 25 args
 // char* argList[50];
 // int argSize;
@@ -210,14 +212,45 @@ int unsetEnv(char* name) {
 
 int processCommand(void) {
 
-	//where is the command located?
-	//return if not found
+	// Get locations from path env var
+	char* path_env;
+	for(int i = 0; i < varIndex; i++) {
+		if(strcmp(varTable.var[i], "PATH") == 0) {
+			path_env = varTable.word[i];
+			break;
+		}
+	}
+	
+	if(path_env == NULL) {
+		fprintf(stderr, RED "Couldn't find PATH environment variable.\n");
+		return 0;
+	}
 
-	char command_with_path[50] = "/bin/";
-	strcat(command_with_path, cmdTable.name);
+	getPaths(path_env);	
 
-	if(access(command_with_path, X_OK)) {
-		fprintf(stderr, URED "Error: Command not executable.\n");
+	char command_with_path[50];
+	int found = 0;
+
+	// Try to run the command on each path.
+	for(int i = 0; i < numPaths; i++) {
+		// printf("attempting paths[%d]: \"%s\"\n", i, paths[i]);
+
+		strcpy(command_with_path, paths[i]);
+		strcat(command_with_path, "/");
+		strcat(command_with_path, cmdTable.name);
+		
+		// printf("Checking accessibility of \"%s\"\n", command_with_path);
+
+		// Is it accessible?
+		if(access(command_with_path, X_OK) == 0) {
+			// printf("this one works\n");
+			found = 1;
+			break;
+		}
+	}
+
+	if(!found) {
+		fprintf(stderr, RED "Error: Command not executable.\n");
 		return 0;
 	}
 	
@@ -250,9 +283,38 @@ int processCommand(void) {
 	return 1;
 }
 
+void getPaths(char* envStr) {
+    // Initialize each path string	
+	for(int i = 0; i < sizeof(paths); i++)
+		paths[i] = malloc(sizeof(char*));
+		
+	numPaths = 0;
 
-// void addToArgList(char *arg) {
-// 	static int idx = 0;
-// 	// Add arg to list 
-// 	strcpy(argList[idx++], arg);
-// }
+	char* delim = ":";
+
+	char *tempEnvStr = malloc(sizeof(envStr));
+
+	strcpy(tempEnvStr, envStr);
+	// printf("tempEnvStr: \"%s\"\n", tempEnvStr);
+
+	char *ptr = strtok(tempEnvStr, delim);
+
+	while(ptr != NULL) {
+
+		//printf("token: \"%s\"\n", ptr); // debug
+		
+		// Add to array
+		paths[numPaths++] = ptr;
+
+		// Start at next NUL terminator position of string (strtok remembers initial string)
+		ptr = strtok(NULL, delim);
+	}
+	
+	// Debug print
+	// for(int k = 0; k < numPaths; k++)
+	// 	printf("[getPaths]\tpaths[%d]: \"%s\"\n", k, paths[k]);
+
+}
+
+
+//  TODO Free memory!!!!!!!!!!!!!!!!!!!

@@ -3,14 +3,14 @@
 
 // Environment variable table
 struct evTable {
-   char var[128][100];
-   char word[128][100];
+   char var[128][100]; // variable name
+   char word[128][100]; // value
 };
 
 // Alias table
 struct aTable {
-	char name[128][100];
-	char word[128][100];
+	char name[128][100]; // alias
+	char word[128][100]; // expanded value
 };
 
 struct commandProperties {
@@ -27,6 +27,10 @@ char cwd[PATH_MAX];
 struct evTable varTable;
 struct aTable aliasTable;
 struct commandProperties cmdTable;
+
+// Array to hold each path string for commands
+char *paths[50];
+int numPaths;
 
 // Current sizes of alias table and env var table
 int aliasIndex, varIndex;
