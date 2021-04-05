@@ -6,6 +6,7 @@
 #include <string.h>
 #include "global.h"
 #include <unistd.h>
+#include "colors.h"
 
 char *getcwd(char *buf, size_t size);
 int yyparse();
@@ -32,12 +33,11 @@ int main()
     varIndex++;
 
     system("clear");
+    printf("Welcome to the Nutshell, loser.\n");
     while(1)
     {
-        printf("[%s]>> ", varTable.word[2]);
-
+        printf(GRN "[%s]>> " reset, varTable.word[2]);
         yyparse();
-
     }
 
    return 0;

@@ -14,9 +14,9 @@ struct aTable {
 };
 
 struct commandProperties {
-   char name[100];
+   char* name;
    int argc;
-   char argv[100];
+   char* argv[50];
    char inputFile[PATH_MAX];
    char outputFile[PATH_MAX];
 };
@@ -26,7 +26,7 @@ char cwd[PATH_MAX];
 // Instantiate tables
 struct evTable varTable;
 struct aTable aliasTable;
-struct commandProperties commandTable; // TODO make array
+struct commandProperties cmdTable;
 
 // Current sizes of alias table and env var table
 int aliasIndex, varIndex;

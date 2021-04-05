@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include "global.h"
+#include "colors.h"
 
 int yylex(void);
 int yyerror(char *s);
@@ -22,9 +23,12 @@ int setEnv(char *varName, char *value);
 int printEnv(void);
 int unsetEnv(char*);
 
-int processCommand(char *command, char *args);
+int processCommand(void);
 
-char argList[256];
+// argument list: 25 args
+// char* argList[50];
+// int argSize;
+
 
 // end of C code
 %}
@@ -38,8 +42,12 @@ char argList[256];
 %%
 
 argument_list :
-	%empty                         {memset(&argList[0], 0, sizeof(argList)); $$ = argList;}
-	| argument_list STRING         {$$ = $1; strcat($$, $2);}
+	%empty                         {
+									for(int i = 0; i < sizeof(cmdTable.argv); i++)
+										cmdTable.argv[i] = malloc(sizeof(char*));
+									cmdTable.argc = 1; // Set to 1 so [0] is available for path
+								   }
+	| argument_list STRING         {$$ = $1; strcpy(cmdTable.argv[cmdTable.argc++], $2);}
 
 cmd_line :
 	BYE END 		                {exit(1); return 1; }
@@ -50,7 +58,7 @@ cmd_line :
 	| SETENV STRING STRING END      {return setEnv($2, $3);}
 	| PRINTENV END                  {return printEnv();}
 	| UNSETENV STRING END           {return unsetEnv($2);}
-	| STRING argument_list END		{return processCommand($1, $2);}   
+	| STRING argument_list END		{cmdTable.name = $1; return processCommand();}   
 	
 %%
 
@@ -200,16 +208,18 @@ int unsetEnv(char* name) {
 	return 0; //we didnt find the var
 }
 
-int processCommand(char *command, char *args) {
+int processCommand(void) {
 
 	//where is the command located?
-
 	//return if not found
 
 	char command_with_path[50] = "/bin/";
-	strcat(command_with_path, command);
-	
-	printf("Running command \"%s\"...\n", command_with_path);
+	strcat(command_with_path, cmdTable.name);
+
+	if(access(command_with_path, X_OK)) {
+		fprintf(stderr, URED "Error: Command not executable.\n");
+		return 0;
+	}
 	
 	// Make a new process
 	pid_t p = fork();
@@ -218,26 +228,31 @@ int processCommand(char *command, char *args) {
 		fprintf(stderr, "Fork failed.\n");
 		return 0;
 	}
-	else if(p > 0) { // Parent process (nutshell)
-		// wait for child ?
+	else if(p > 0) { 
+		// Parent process (nutshell)
+		// wait for child
 		wait(NULL);
 	}
 	else { // Child process (p==0)
-	// Attempt to access via each path directory.
-		// if(access(command_with_path, X_OK)) { // TODO split path env variable and check each one.
-			printf("args: \"%s\"\n", args);
-			if(strcmp(args, "") == 0) {
-				execl(command_with_path, command_with_path, NULL, NULL); //no arguments to pass
-			}
-			else {
-				execl(command_with_path, command_with_path, args, NULL); // pass args
-			}
+		cmdTable.argv[0] = command_with_path;
+		cmdTable.argv[cmdTable.argc++] = NULL;
+
+		//debug code for printing arguments
+		// printf("------Args------\n");
+		// for(int i = 0; i < argSize; i++) {
+		// 	printf("argList[%d]: \"%s\"\n", i, argList[i]);
 		// }
-		// else {
-			// printf("Couldn't access command %s.\n", command_with_path);
-			// return 0;
-		// }
+		// printf("----------------\n");
+
+		execv(command_with_path, cmdTable.argv); // Execute command with args
 	}
 
 	return 1;
 }
+
+
+// void addToArgList(char *arg) {
+// 	static int idx = 0;
+// 	// Add arg to list 
+// 	strcpy(argList[idx++], arg);
+// }
