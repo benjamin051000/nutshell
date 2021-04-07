@@ -27,8 +27,8 @@ bool ifAlias(char* name){
 %option noyywrap
 %x string_condition
 
-CHAR            [.A-Za-z0-9!\/_-][.A-Za-z0-9!\/_-]*
-ANYCHAR            [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ -][)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ -]*
+CHAR            [.A-Za-z0-9!\/_\-:][.A-Za-z0-9!\/_\-:]*
+ANYCHAR            [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:][)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]*
 
 %%
 
