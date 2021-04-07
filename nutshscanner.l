@@ -5,7 +5,14 @@
 #include "nutshparser.tab.h"
 #include <string.h>
 #include "global.h"
+#include "colors.h"
 
+void yyerror(char*);
+// void yyerror(char* msg) {
+//     fprintf(stderr, RED "%s", msg);
+// }
+
+// Substitute the alias tokens with their expanded name.
 char* subAliases(char* name){
     for (int i = 0; i < aliasIndex; i++) {
         if(strcmp(aliasTable.name[i], name) == 0) {
@@ -14,6 +21,28 @@ char* subAliases(char* name){
     }
     return name;
 }
+
+// Substitute the variable with their expanded name.
+char* subVariable(char* name){
+    for (int i = 0; i < varIndex; i++) {
+        if(strcmp(varTable.var[i], name) == 0) {
+            return varTable.word[i];
+        }
+    }
+    return name;
+}
+
+// Check each individual token to see if it's an variable.
+bool ifVariable(char* name){
+    for (int i = 0; i < varIndex; i++) {
+        if(strcmp(varTable.var[i], name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Check each individual token to see if it's an alias.
 bool ifAlias(char* name){
     for (int i = 0; i < aliasIndex; i++) {
         if(strcmp(aliasTable.name[i], name) == 0) {
@@ -33,6 +62,7 @@ ANYCHAR            [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]+
 %%
 
 <string_condition>{ANYCHAR}+     { yylval.string = strdup(yytext); return STRING;}
+<string_condition>$\{{CHAR}+\}   
 <string_condition>[\"]          {BEGIN(INITIAL);}
 
 [ ]		            { }
@@ -52,10 +82,32 @@ printenv            { return PRINTENV; }
                            for ( int i = strlen(subAliases(yytext)) - 1; i >= 0; --i )
                                unput( yycopy[i] );
                            free( yycopy );
-                    } else {
-                        printf("yytext: %s\n", yytext);
-                        yylval.string = strdup(yytext);
-                        return STRING;
-                    };
+                        } else {
+                            printf("yytext: %s\n", yytext);
+                            yylval.string = strdup(yytext);
+                            return STRING;
+                        };
+                    }
+$\{{CHAR}+\}        {                     
+                        char* yycopy = strdup(yytext);
+                        char* strbuff = malloc(sizeof(yycopy));
+                        int pos = strcspn(yycopy, "}"); // find where end curly brace is                    
+                        memcpy(strbuff, &yycopy[2], pos-2); // substring to get rid of "${}"
+                        printf("string: \"%s\"\n", strbuff);
+
+                        if(ifVariable(strbuff)) {
+                            char* varcopy = strdup(subVariable(strbuff));
+                            for ( int i = strlen(subVariable(strbuff)) - 1; i >= 0; --i )
+                                unput( varcopy[i] );
+                            free( varcopy );
+                            free(strbuff);
+                        
+                            printf("DEBUG: variable is: \"%s\"\n", yytext);
+                        }
+                        else {
+                            yyerror(RED "ERROR: Invalid environment variable." reset);
+                            return STRING; 
+                            // TODO should we throw an error here, or try to run the command (and let it handle the err)?
+                        }
                     }
 %%
