@@ -19,6 +19,7 @@ struct commandProperties {
    char* argv[50];
    char inputFile[PATH_MAX];
    char outputFile[PATH_MAX];
+   int background; // 1 if background, 0 if foreground
 };
 
 char cwd[PATH_MAX];

@@ -23,7 +23,7 @@ int setEnv(char *varName, char *value);
 int printEnv(void);
 int unsetEnv(char*);
 
-int processCommand(void);
+int processCommand(int runInBackground);
 
 void getPaths(char* envStr);
 
@@ -38,30 +38,43 @@ void getPaths(char* envStr);
 %union {char *string;}
 
 %start cmd_line
-%token <string> BYE CD STRING ALIAS UNALIAS END SETENV PRINTENV UNSETENV
+%token <string> BYE CD STRING ALIAS UNALIAS END SETENV PRINTENV UNSETENV AMPERSAND VERTBAR
 %nterm <string> argument_list
+%type <string> background 
 
 %%
 
+// pipe:
+// 	%empty {}
+// 	| VERTBAR STRING argument_list {}
+	// | pipe 
+
+background :
+	%empty {cmdTable.background = 0;}
+	| AMPERSAND {cmdTable.background = 1;}
+
+
 argument_list :
-	%empty                         {
-									for(int i = 0; i < sizeof(cmdTable.argv); i++)
-										cmdTable.argv[i] = malloc(sizeof(char*));
-									cmdTable.argc = 1; // Set to 1 so [0] is available for path
-								   }
+	%empty                          {
+									 for(int i = 0; i < sizeof(cmdTable.argv); i++)
+									    cmdTable.argv[i] = malloc(sizeof(char*));
+									 cmdTable.argc = 1; // Set to 1 so [0] is available for path
+								    }
 	| argument_list STRING         {$$ = $1; strcpy(cmdTable.argv[cmdTable.argc++], $2);}
 
 cmd_line :
-	BYE END 		                {exit(1); return 1; }
-	| CD STRING END        			{runCD($2); return 1;}
-	| ALIAS STRING STRING END		{runSetAlias($2, $3); return 1;}
-	| ALIAS END                     {showAliases(); return 1;}
-	| UNALIAS STRING END			{unsetAlias($2); return 1;}
-	| SETENV STRING STRING END      {return setEnv($2, $3);}
-	| PRINTENV END                  {return printEnv();}
-	| UNSETENV STRING END           {return unsetEnv($2);}
-	| STRING argument_list END		{cmdTable.name = $1; return processCommand();}   
-	
+	%empty                               {return 1;}
+	| BYE END 		                	 {exit(1); return 1; }
+	| CD STRING END        				 {runCD($2); return 1;}
+	| ALIAS STRING STRING END			 {runSetAlias($2, $3); return 1;}
+	| ALIAS END                     	 {showAliases(); return 1;}
+	| UNALIAS STRING END				 {unsetAlias($2); return 1;}
+	| SETENV STRING STRING END      	 {return setEnv($2, $3);}
+	| PRINTENV END                  	 {return printEnv();}
+	| UNSETENV STRING END           	 {return unsetEnv($2);}
+	| STRING argument_list background END {cmdTable.name = $1; return processCommand(cmdTable.background);}   // background
+		// | STRING argument_list PIPE argument_list END
+	// | STRING argument_list PIPE argument_list AMPERSAND END
 %%
 
 int yyerror(char *s) {
@@ -210,7 +223,7 @@ int unsetEnv(char* name) {
 	return 0; //we didnt find the var
 }
 
-int processCommand(void) {
+int processCommand(int runInBackground) {
 
 	// Get locations from path env var
 	char* path_env;
@@ -253,7 +266,8 @@ int processCommand(void) {
 		fprintf(stderr, RED "Error: Command not executable.\n");
 		return 0;
 	}
-	
+
+	//TODO after one & command, we arnt waiting for the child to finish anymore 
 	// Make a new process
 	pid_t p = fork();
 
@@ -263,8 +277,12 @@ int processCommand(void) {
 	}
 	else if(p > 0) { 
 		// Parent process (nutshell)
-		// wait for child
-		wait(NULL);
+		// wait for child (unless we want it run in the foreground)
+		if(!runInBackground)
+		{
+			wait(NULL); // TODO is this it? Nano doesn't run in bkgd like in bash
+			//printf("We waited for process to finish.\n");
+		}
 	}
 	else { // Child process (p==0)
 		cmdTable.argv[0] = command_with_path;
@@ -278,6 +296,8 @@ int processCommand(void) {
 		// printf("----------------\n");
 
 		execv(command_with_path, cmdTable.argv); // Execute command with args
+		printf(BLU "--\tThe child is done\n" reset);
+		// exit(0); // child process complete
 	}
 
 	return 1;

@@ -74,6 +74,8 @@ setenv              { return SETENV; }
 unsetenv            {return UNSETENV; }
 printenv            { return PRINTENV; }
 "\n"		        { return END; }
+&                   { return AMPERSAND; }
+\|                  { return VERTBAR; }
 [\"]                 { BEGIN(string_condition); }
 {CHAR}+              {if(ifAlias(yytext)) {
                         printf("yytext: %s\n", yytext);
@@ -102,11 +104,11 @@ $\{{CHAR}+\}        {
                             free( varcopy );
                             free(strbuff);
                         
-                            printf("DEBUG: variable is: \"%s\"\n", yytext);
+                           // printf("DEBUG: variable is: \"%s\"\n", yytext);
                         }
                         else {
                             yyerror(RED "ERROR: Invalid environment variable." reset);
-                            return STRING; 
+                            return STRING;
                             // TODO should we throw an error here, or try to run the command (and let it handle the err)?
                         }
                     }
