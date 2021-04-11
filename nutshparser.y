@@ -57,7 +57,7 @@ background :
 argument_list :
 	%empty                          {
 									 for(int i = 0; i < sizeof(cmdTable.argv); i++)
-									    cmdTable.argv[i] = malloc(sizeof(char*));
+									    cmdTable.argv[i] = malloc(30*sizeof(char)); // Allocate 50 chars for each argv.
 									 cmdTable.argc = 1; // Set to 1 so [0] is available for path
 								    }
 	| argument_list STRING         {$$ = $1; strcpy(cmdTable.argv[cmdTable.argc++], $2);}
@@ -72,7 +72,7 @@ cmd_line :
 	| SETENV STRING STRING END      	 {return setEnv($2, $3);}
 	| PRINTENV END                  	 {return printEnv();}
 	| UNSETENV STRING END           	 {return unsetEnv($2);}
-	| STRING argument_list background END {cmdTable.name = $1; return processCommand(cmdTable.background);}   // background
+	| STRING argument_list background END {strcpy(cmdTable.name, $1); return processCommand(cmdTable.background);}   // background
 		// | STRING argument_list PIPE argument_list END
 	// | STRING argument_list PIPE argument_list AMPERSAND END
 %%
@@ -303,18 +303,21 @@ int processCommand(int runInBackground) {
 	return 1;
 }
 
+/* Input path environment variable, split and add invididual paths to 
+"paths" global to iterate through later when running an Other Command. */
 void getPaths(char* envStr) {
     // Initialize each path string	
-	for(int i = 0; i < sizeof(paths); i++)
-		paths[i] = malloc(sizeof(char*));
+	for(int i = 0; i < sizeof(paths)/sizeof(char*); i++)
+		paths[i] = malloc(50*sizeof(char));
 		
 	numPaths = 0;
 
-	char* delim = ":";
+	char* delim = ":"; // TODO is this on stack or heap???
 
+	// Copy envStr before modifying it.
 	char *tempEnvStr = malloc(sizeof(envStr));
-
 	strcpy(tempEnvStr, envStr);
+
 	// printf("tempEnvStr: \"%s\"\n", tempEnvStr);
 
 	char *ptr = strtok(tempEnvStr, delim);
@@ -334,6 +337,7 @@ void getPaths(char* envStr) {
 	// for(int k = 0; k < numPaths; k++)
 	// 	printf("[getPaths]\tpaths[%d]: \"%s\"\n", k, paths[k]);
 
+	/* free(tempEnvStr); */
 }
 
 

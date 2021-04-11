@@ -14,7 +14,7 @@ struct aTable {
 };
 
 struct commandProperties {
-   char* name;
+   char name[50];
    int argc;
    char* argv[50];
    char inputFile[PATH_MAX];
@@ -27,10 +27,11 @@ char cwd[PATH_MAX];
 // Instantiate tables
 struct evTable varTable;
 struct aTable aliasTable;
-struct commandProperties cmdTable;
+struct commandProperties cmdTable;//cmdTable[1];
+// int cmdTableSize; // Size of cmdTable (used for indexing and iteration)
 
 // Array to hold each path string for commands
-char *paths[50];
+char* paths[50];
 int numPaths;
 
 // Current sizes of alias table and env var table
