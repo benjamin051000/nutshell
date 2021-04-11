@@ -11,6 +11,23 @@
 char *getcwd(char *buf, size_t size);
 int yyparse();
 
+/* A very complex function. */
+void print_welcome(void) {
+    printf(
+        GRN "\t      _\n"
+        "\t    _/-\\_\n"
+        "\t .-`-:-:-`-.\n"
+        "\t/-:-:-:-:-:-\\   ███    ██ ██    ██ ████████ ███████ ██   ██ ███████ ██      ██      \n"
+        "\t\\:-:-:-:-:-:/   ████   ██ ██    ██    ██    ██      ██   ██ ██      ██      ██      \n"
+        "\t |`       `|    ██ ██  ██ ██    ██    ██    ███████ ███████ █████   ██      ██      \n"
+        "\t |         |    ██  ██ ██ ██    ██    ██         ██ ██   ██ ██      ██      ██      \n"
+        "\t `\\       /'    ██   ████  ██████     ██    ███████ ██   ██ ███████ ███████ ███████ \n"
+        "\t   `-._.-'\n"
+        "\t      `\n"
+        reset
+    );
+}
+
 int main()
 {
     // Set default values of global variables
@@ -29,7 +46,7 @@ int main()
     strcpy(varTable.word[varIndex], "nutshell");
     varIndex++;
     strcpy(varTable.var[varIndex], "PATH");
-    strcpy(varTable.word[varIndex], ".:/bin");
+    strcpy(varTable.word[varIndex], ".:/bin:/usr/games"); // /usr/games for cowsay
     varIndex++;
 
     // Allocate space for entire command table
@@ -46,7 +63,8 @@ int main()
     }
     
     system("clear");
-    printf("Welcome to the Nutshell, loser.\n");
+    // printf("Welcome to the Nutshell, loser.\n");
+    print_welcome();
     while(1)
     {
         printf(GRN "[%s]>> " reset, varTable.word[2]);
