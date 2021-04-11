@@ -32,6 +32,19 @@ int main()
     strcpy(varTable.word[varIndex], ".:/bin");
     varIndex++;
 
+    // Allocate space for entire command table
+    // Iterate through each cmdTable
+    for(int i = 0; i < 50; i++) 
+    {
+        // Allocate space for each argv string
+        for(int j = 0; j < 50; j++)
+        {
+            cmdTable[i].argv[j] = malloc(30*sizeof(char));              
+        }
+        
+        cmdTable[i].argc = 1; // Set to 1 so [0] is available for path
+    }
+    
     system("clear");
     printf("Welcome to the Nutshell, loser.\n");
     while(1)

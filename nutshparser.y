@@ -50,17 +50,19 @@ void getPaths(char* envStr);
 	// | pipe 
 
 background :
-	%empty {cmdTable.background = 0;}
-	| AMPERSAND {cmdTable.background = 1;}
+	%empty {background = 0;}
+	| AMPERSAND {background = 1;}
 
 
 argument_list :
 	%empty                          {
-									 for(int i = 0; i < sizeof(cmdTable.argv); i++)
-									    cmdTable.argv[i] = malloc(30*sizeof(char)); // Allocate 50 chars for each argv.
-									 cmdTable.argc = 1; // Set to 1 so [0] is available for path
-								    }
-	| argument_list STRING         {$$ = $1; strcpy(cmdTable.argv[cmdTable.argc++], $2);}
+										for(int i = 0; i < cmdTable[0].argc; i++) {
+											// Clear the arguments
+											strcpy(cmdTable[0].argv[i], ""); // cringe
+										}
+										cmdTable[0].argc = 1;
+									}
+	| argument_list STRING         {$$ = $1; strcpy(cmdTable[0].argv[cmdTable[0].argc++], $2);}
 
 cmd_line :
 	%empty                               {return 1;}
@@ -72,7 +74,7 @@ cmd_line :
 	| SETENV STRING STRING END      	 {return setEnv($2, $3);}
 	| PRINTENV END                  	 {return printEnv();}
 	| UNSETENV STRING END           	 {return unsetEnv($2);}
-	| STRING argument_list background END {strcpy(cmdTable.name, $1); return processCommand(cmdTable.background);}   // background
+	| STRING argument_list background END {strcpy(cmdTable[0].name, $1); return processCommand(background);}   // background
 		// | STRING argument_list PIPE argument_list END
 	// | STRING argument_list PIPE argument_list AMPERSAND END
 %%
@@ -250,7 +252,7 @@ int processCommand(int runInBackground) {
 
 		strcpy(command_with_path, paths[i]);
 		strcat(command_with_path, "/");
-		strcat(command_with_path, cmdTable.name);
+		strcat(command_with_path, cmdTable[0].name);
 		
 		// printf("Checking accessibility of \"%s\"\n", command_with_path);
 
@@ -285,8 +287,8 @@ int processCommand(int runInBackground) {
 		}
 	}
 	else { // Child process (p==0)
-		cmdTable.argv[0] = command_with_path;
-		cmdTable.argv[cmdTable.argc++] = NULL;
+		cmdTable[0].argv[0] = command_with_path;
+		cmdTable[0].argv[cmdTable[0].argc++] = NULL;
 
 		//debug code for printing arguments
 		// printf("------Args------\n");
@@ -295,7 +297,7 @@ int processCommand(int runInBackground) {
 		// }
 		// printf("----------------\n");
 
-		execv(command_with_path, cmdTable.argv); // Execute command with args
+		execv(command_with_path, cmdTable[0].argv); // Execute command with args
 		printf(BLU "--\tThe child is done\n" reset);
 		// exit(0); // child process complete
 	}
