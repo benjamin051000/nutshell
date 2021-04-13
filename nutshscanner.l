@@ -83,14 +83,14 @@ printenv            { return PRINTENV; }
 \|                  { return VERTBAR; }
 [\"]                { BEGIN(string_condition); }
 {CHAR}+             {if(ifAlias(yytext)) {
-                        printf("yytext: %s\n", yytext);
+                        //printf("yytext: %s\n", yytext);
                         //source: https://www.cs.princeton.edu/~appel/modern/c/software/flex/flex.html
                            char *yycopy = strdup( subAliases(yytext) );
                            for ( int i = strlen(subAliases(yytext)) - 1; i >= 0; --i )
                                unput( yycopy[i] );
                            free( yycopy );
                         } else {
-                            printf("yytext: %s\n", yytext);
+                            //printf("yytext: %s\n", yytext);
                             yylval.string = strdup(yytext);
                             return STRING;
                         };
