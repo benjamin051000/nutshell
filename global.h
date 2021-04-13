@@ -23,6 +23,11 @@ struct commandProperties {
 // For File I/O
 char inputFile[PATH_MAX];
 char outputFile[PATH_MAX];
+char errorFile[PATH_MAX];
+
+int appendFile; // bool if we should append to the output file (1) or overwrite it (0)
+int errorOutputToFile; // bool if exists
+
 // Bool for if the task is a background (1) or foreground (0) task.
 int background;
 

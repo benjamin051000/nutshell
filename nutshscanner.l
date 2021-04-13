@@ -75,9 +75,14 @@ unsetenv            {return UNSETENV; }
 printenv            { return PRINTENV; }
 "\n"		        { return END; }
 &                   { return AMPERSAND; }
+\<                  { return LESS_THAN; }
+\>                  { return GREATER_THAN; }
+\>\>                { return DOUBLE_GREATER_THAN;}
+2\>                 { return STD_ERR_SYMB; }
+2\>&1               { return STD_ERR_SYMB_2; }
 \|                  { return VERTBAR; }
-[\"]                 { BEGIN(string_condition); }
-{CHAR}+              {if(ifAlias(yytext)) {
+[\"]                { BEGIN(string_condition); }
+{CHAR}+             {if(ifAlias(yytext)) {
                         printf("yytext: %s\n", yytext);
                         //source: https://www.cs.princeton.edu/~appel/modern/c/software/flex/flex.html
                            char *yycopy = strdup( subAliases(yytext) );

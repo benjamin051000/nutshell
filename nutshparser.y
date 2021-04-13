@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <fcntl.h> // for open()
 #include "global.h"
 #include "colors.h"
 
@@ -23,7 +24,7 @@ int setEnv(char *varName, char *value);
 int printEnv(void);
 int unsetEnv(char*);
 
-int processCommand(int runInBackground);
+int processCommand(void);
 
 void getPaths(char* envStr);
 
@@ -38,31 +39,50 @@ void getPaths(char* envStr);
 %union {char *string;}
 
 %start cmd_line
-%token <string> BYE CD STRING ALIAS UNALIAS END SETENV PRINTENV UNSETENV AMPERSAND VERTBAR
-%nterm <string> argument_list
-%type <string> background 
+%token <string> BYE CD STRING ALIAS UNALIAS END SETENV PRINTENV UNSETENV AMPERSAND VERTBAR LESS_THAN GREATER_THAN DOUBLE_GREATER_THAN STD_ERR_SYMB STD_ERR_SYMB_2
+%nterm <string> argument_list cmd_list vert_bar 
+%type <string> background
 
 %%
 
-// pipe:
-// 	%empty {}
-// 	| VERTBAR STRING argument_list {}
-	// | pipe 
+vert_bar:
+	%empty     {}
+	| VERTBAR  {}
+
+cmd_list:
+	%empty {cmdTableSize = 0;}
+ 	| cmd_list vert_bar STRING argument_list {strcpy(cmdTable[cmdTableSize++].name, $3);}
+
 
 background :
-	%empty {background = 0;}
-	| AMPERSAND {background = 1;}
+	%empty                          {background = 0;}
+	| AMPERSAND                     {background = 1;}
 
 
 argument_list :
 	%empty                          {
-										for(int i = 0; i < cmdTable[0].argc; i++) {
+										// Reset the arguments
+										for(int i = 0; i < cmdTable[cmdTableSize].argc; i++) {
 											// Clear the arguments
-											strcpy(cmdTable[0].argv[i], ""); // cringe
+											strcpy(cmdTable[cmdTableSize].argv[i], ""); // cringe
 										}
-										cmdTable[0].argc = 1;
+										cmdTable[cmdTableSize].argc = 1;
 									}
-	| argument_list STRING         {$$ = $1; strcpy(cmdTable[0].argv[cmdTable[0].argc++], $2);}
+	| argument_list STRING          {$$ = $1; strcpy(cmdTable[cmdTableSize].argv[cmdTable[cmdTableSize].argc++], $2);}
+
+write_file:
+	%empty                          {strcpy(outputFile, "");}
+	| GREATER_THAN STRING           {strcpy(outputFile, $2); appendFile = 0;}
+	| DOUBLE_GREATER_THAN STRING    {strcpy(outputFile, $2); appendFile = 1;}
+
+read_file:
+	%empty                          {strcpy(inputFile, "");}
+	| LESS_THAN STRING              {strcpy(inputFile, $2);}
+
+standard_error:
+	%empty
+	| STD_ERR_SYMB STRING			{strcpy(errorFile, $2); errorOutputToFile = 1;}
+	| STD_ERR_SYMB_2 				{errorOutputToFile = 0;}
 
 cmd_line :
 	%empty                               {return 1;}
@@ -74,9 +94,7 @@ cmd_line :
 	| SETENV STRING STRING END      	 {return setEnv($2, $3);}
 	| PRINTENV END                  	 {return printEnv();}
 	| UNSETENV STRING END           	 {return unsetEnv($2);}
-	| STRING argument_list background END {strcpy(cmdTable[0].name, $1); return processCommand(background);}   // background
-		// | STRING argument_list PIPE argument_list END
-	// | STRING argument_list PIPE argument_list AMPERSAND END
+	| cmd_list read_file write_file standard_error background END            {return processCommand();}   // background
 %%
 
 int yyerror(char *s) {
@@ -225,7 +243,20 @@ int unsetEnv(char* name) {
 	return 0; //we didnt find the var
 }
 
-int processCommand(int runInBackground) {
+//TODO pressing enter with nothing typed executes the last command
+int processCommand(void) {
+
+	//DEBUG print out whole table
+	/* for(int i = 0; i < cmdTableSize; i++)
+	{
+		printf("Command[%d]: %s\n", i, cmdTable[i].name);
+		
+		printf("\tArgs (%d):", cmdTable[i].argc-1); // Skip one (see below)
+		for(int arg = 1; arg < cmdTable[i].argc; arg++) { // Skip first one (first arg is always cmd name, set later in this function)
+			printf(" \"%s\"", cmdTable[i].argv[arg]);
+		}
+		printf("\n");
+	} */
 
 	// Get locations from path env var
 	char* path_env;
@@ -280,7 +311,7 @@ int processCommand(int runInBackground) {
 	else if(p > 0) { 
 		// Parent process (nutshell)
 		// wait for child (unless we want it run in the foreground)
-		if(!runInBackground)
+		if(!background)
 		{
 			wait(NULL); // TODO is this it? Nano doesn't run in bkgd like in bash
 			//printf("We waited for process to finish.\n");
@@ -297,9 +328,40 @@ int processCommand(int runInBackground) {
 		// }
 		// printf("----------------\n");
 
-		execv(command_with_path, cmdTable[0].argv); // Execute command with args
-		printf(BLU "--\tThe child is done\n" reset);
-		// exit(0); // child process complete
+		
+
+		//////////////////////////////////////////////////////////////////////////////
+		// File I/O:
+		// Redirect file stdin/stdout if necessary
+		//////////////////////////////////////////////////////////////////////////////
+		if(strcmp(outputFile, "")) { // If outputFile is not null
+			
+			int flags = (appendFile ? O_APPEND : O_TRUNC) | O_WRONLY | O_CREAT; // ez one liner
+
+			int fd = open(outputFile, flags, 0666); // 0666 is file permissions
+			if(dup2(fd, 1) < 0) { // Whenever program writes to stdout, write to fd instead 
+				printf(RED "ERROR: dup2 unsuccessful." reset "\n");
+			}
+
+			close(fd); // Child will still to write even after we close thanks to dup2().
+		}
+
+		if(strcmp(inputFile, "")) {
+			int fd = open(inputFile, O_RDONLY, 0666); // 0666 is file permissions
+			
+			if(dup2(fd, 0) < 0) { // Read from input file
+				printf(RED "ERROR: dup2 unsuccessful." reset "\n");
+			}
+
+			close(fd); // Child will still to write even after we close thanks to dup2().
+		}
+
+		// Execute command with args
+		execv(command_with_path, cmdTable[0].argv); 
+		
+		// No need to exit(0), execv does that for us.
+		// If we get to this point, execv didn't exit because it encountered a problem.
+		printf(RED "ERROR: Couldn't execute command." reset "\n");
 	}
 
 	return 1;
