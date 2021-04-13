@@ -80,9 +80,9 @@ read_file:
 	| LESS_THAN STRING              {strcpy(inputFile, $2);}
 
 standard_error:
-	%empty
-	| STD_ERR_SYMB STRING			{strcpy(errorFile, $2); errorOutputToFile = 1;}
-	| STD_ERR_SYMB_2 				{errorOutputToFile = 0;}
+	%empty							{strcpy(errorFile, "");}
+	| STD_ERR_SYMB STRING			{strcpy(errorFile, $2); stderrToStdout = 0;}
+	| STD_ERR_SYMB_2 				{strcpy(errorFile, ""); stderrToStdout = 1;}
 
 cmd_line :
 	%empty                               {return 1;}
@@ -340,7 +340,7 @@ int processCommand(void) {
 
 			int fd = open(outputFile, flags, 0666); // 0666 is file permissions
 			if(dup2(fd, 1) < 0) { // Whenever program writes to stdout, write to fd instead 
-				printf(RED "ERROR: dup2 unsuccessful." reset "\n");
+				printf(RED "ERROR: dup2 unsuccessful. (output file)" reset "\n");
 			}
 
 			close(fd); // Child will still to write even after we close thanks to dup2().
@@ -350,10 +350,24 @@ int processCommand(void) {
 			int fd = open(inputFile, O_RDONLY, 0666); // 0666 is file permissions
 			
 			if(dup2(fd, 0) < 0) { // Read from input file
-				printf(RED "ERROR: dup2 unsuccessful." reset "\n");
+				printf(RED "ERROR: dup2 unsuccessful. (input file)" reset "\n");
 			}
 
 			close(fd); // Child will still to write even after we close thanks to dup2().
+		}
+
+		if(strcmp(errorFile, "")) {
+			int fd = open(errorFile, O_WRONLY | O_TRUNC | O_CREAT, 0666); // 0666 is file permissions
+			
+			if(dup2(fd, 2) < 0) { // Redirect error file
+				printf(RED "ERROR: dup2 unsuccessful. (error file)" reset "\n");
+			}
+
+			close(fd); // Child will still to write even after we close thanks to dup2().
+		}
+		else if(stderrToStdout) {
+			// Redirect stderr to stdout
+			dup2(1, 2);
 		}
 
 		// Execute command with args
@@ -405,4 +419,4 @@ void getPaths(char* envStr) {
 }
 
 
-//  TODO Free memory!!!!!!!!!!!!!!!!!!!
+//  TODO Free memory (in bye)!!!!!!!!!!!!!!!!!!!
