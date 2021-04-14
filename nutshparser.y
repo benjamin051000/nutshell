@@ -272,119 +272,129 @@ int processCommand(void) {
 		return 0;
 	}
 
-	getPaths(path_env);	
+	getPaths(path_env);
 
-	char command_with_path[50];
-	int found = 0;
+	
 
-	// Try to run the command on each path.
-	for(int i = 0; i < numPaths; i++) {
-		// printf("attempting paths[%d]: \"%s\"\n", i, paths[i]);
-
-		strcpy(command_with_path, paths[i]);
-		strcat(command_with_path, "/");
-		strcat(command_with_path, cmdTable[0].name);
+	for(int commandIndex = 0; commandIndex < cmdTableSize; commandIndex++)
+	{
 		
-		// printf("Checking accessibility of \"%s\"\n", command_with_path);
-
-		// Is it accessible?
-		if(access(command_with_path, X_OK) == 0) {
-			// printf("this one works\n");
-			found = 1;
-			break;
-		}
-	}
-
-	if(!found) {
-		fprintf(stderr, RED "Error: Command not executable.\n");
-		return 0;
-	}
-
-	//TODO after one & command, we arnt waiting for the child to finish anymore 
-	// Make a new process
-	pid_t p = fork();
-
-	if(p < 0) {
-		fprintf(stderr, "Fork failed.\n");
-		return 0;
-	}
-	else if(p > 0) { 
-		// Parent process (nutshell)
-		// wait for child (unless we want it run in the foreground)
-		if(!background)
-		{
-			wait(NULL); // TODO is this it? Nano doesn't run in bkgd like in bash
-			//printf("We waited for process to finish.\n");
-		}
-	}
-	else { // Child process (p==0)
-		cmdTable[0].argv[0] = command_with_path;
-		cmdTable[0].argv[cmdTable[0].argc++] = NULL;
-
-		//debug code for printing arguments
-		// printf("------Args------\n");
-		// for(int i = 0; i < argSize; i++) {
-		// 	printf("argList[%d]: \"%s\"\n", i, argList[i]);
-		// }
-		// printf("----------------\n");
-
+		char command_with_path[50];
+		int found = 0;
 		
+		// Try to run the command on each path.
+		for(int i = 0; i < numPaths; i++) {
+			// printf("attempting paths[%d]: \"%s\"\n", i, paths[i]);
 
-		//////////////////////////////////////////////////////////////////////////////
-		// File I/O:
-		// Redirect file stdin/stdout if necessary
-		//////////////////////////////////////////////////////////////////////////////
-		if(strcmp(outputFile, "")) { // If outputFile is not null
+			strcpy(command_with_path, paths[i]);
+			strcat(command_with_path, "/");
+			strcat(command_with_path, cmdTable[commandIndex].name);
 			
-			int flags = (appendFile ? O_APPEND : O_TRUNC) | O_WRONLY | O_CREAT; // ez one liner
+			// printf("Checking accessibility of \"%s\"\n", command_with_path);
 
-			int fd = open(outputFile, flags, 0666); // 0666 is file permissions
-			if(dup2(fd, 1) < 0) { // Whenever program writes to stdout, write to fd instead 
-				printf(RED "ERROR: dup2 unsuccessful. (output file)" reset "\n");
+			// Is it accessible?
+			if(access(command_with_path, X_OK) == 0) {
+				// printf("this one works\n");
+				found = 1;
+				break;
+			}
+		}
+
+		if(!found) {
+			fprintf(stderr, RED "Error: Command not executable.\n");
+			return 0;
+		}
+
+		// Make some pipes
+		int pipe[2]; // TODO must become an array of pipes
+
+		//TODO after one & command, we arnt waiting for the child to finish anymore 
+		// Make a new process
+		pid_t p = fork();
+
+		if(p < 0) {
+			fprintf(stderr, "Fork failed.\n");
+			return 0;
+		}
+		else if(p > 0) { 
+			// Parent process (nutshell)
+			// wait for child (unless we want it run in the foreground)
+			if(!background)
+			{
+				wait(NULL); // TODO is this it? Nano doesn't run in bkgd like in bash
+				//printf("We waited for process to finish.\n");
+			}
+		}
+		else { // Child process (p==0)
+			cmdTable[commandIndex].argv[0] = command_with_path; // For execv to work, argv[0] needs to be the command name (for some unknown reason).
+			cmdTable[commandIndex].argv[cmdTable[commandIndex].argc++] = NULL;
+
+			//debug code for printing arguments
+			// printf("------Args------\n");
+			// for(int i = 0; i < argSize; i++) {
+			// 	printf("argList[%d]: \"%s\"\n", i, argList[i]);
+			// }
+			// printf("----------------\n");
+
+			
+
+			//////////////////////////////////////////////////////////////////////////////
+			// File I/O:
+			// Redirect file stdin/stdout if necessary
+			//////////////////////////////////////////////////////////////////////////////
+			if((commandIndex == cmdTableSize - 1) && strcmp(outputFile, "")) { // If outputFile is not null
+				
+				int flags = (appendFile ? O_APPEND : O_TRUNC) | O_WRONLY | O_CREAT; // ez one liner
+
+				int fd = open(outputFile, flags, 0666); // 0666 is file permissions
+				if(dup2(fd, 1) < 0) { // Whenever program writes to stdout, write to fd instead 
+					printf(RED "ERROR: dup2 unsuccessful. (output file)" reset "\n");
+				}
+
+				close(fd); // Child will still to write even after we close thanks to dup2().
 			}
 
-			close(fd); // Child will still to write even after we close thanks to dup2().
-		}
+			if((commandIndex == 0) && strcmp(inputFile, "")) {
+				int fd = open(inputFile, O_RDONLY, 0666); // 0666 is file permissions
+				
+				if(dup2(fd, 0) < 0) { // Read from input file
+					printf(RED "ERROR: dup2 unsuccessful. (input file)" reset "\n");
+				}
 
-		if(strcmp(inputFile, "")) {
-			int fd = open(inputFile, O_RDONLY, 0666); // 0666 is file permissions
-			
-			if(dup2(fd, 0) < 0) { // Read from input file
-				printf(RED "ERROR: dup2 unsuccessful. (input file)" reset "\n");
+				close(fd); // Child will still to write even after we close thanks to dup2().
 			}
 
-			close(fd); // Child will still to write even after we close thanks to dup2().
-		}
+			if(strcmp(errorFile, "")) { // TODO integrate this with pipes: Which pipe connects to this? Do they all?
+				int fd = open(errorFile, O_WRONLY | O_TRUNC | O_CREAT, 0666); // 0666 is file permissions
+				
+				if(dup2(fd, 2) < 0) { // Redirect error file
+					printf(RED "ERROR: dup2 unsuccessful. (error file)" reset "\n");
+				}
 
-		if(strcmp(errorFile, "")) {
-			int fd = open(errorFile, O_WRONLY | O_TRUNC | O_CREAT, 0666); // 0666 is file permissions
-			
-			if(dup2(fd, 2) < 0) { // Redirect error file
-				printf(RED "ERROR: dup2 unsuccessful. (error file)" reset "\n");
+				close(fd); // Child will still to write even after we close thanks to dup2().
+			}
+			else if(stderrToStdout) {
+				// Redirect stderr to stdout
+				dup2(1, 2);
 			}
 
-			close(fd); // Child will still to write even after we close thanks to dup2().
-		}
-		else if(stderrToStdout) {
-			// Redirect stderr to stdout
-			dup2(1, 2);
+			// Execute command with args
+			execv(command_with_path, cmdTable[commandIndex].argv); 
+			
+			// No need to exit(0), execv does that for us.
+			// If we get to this point, execv didn't exit because it encountered a problem.
+			printf(RED "ERROR: Couldn't execute command." reset "\n");
 		}
 
-		// Execute command with args
-		execv(command_with_path, cmdTable[0].argv); 
-		
-		// No need to exit(0), execv does that for us.
-		// If we get to this point, execv didn't exit because it encountered a problem.
-		printf(RED "ERROR: Couldn't execute command." reset "\n");
-	}
+	} // end of for loop
 
 	return 1;
-}
+} // end of processCommand
 
 /* Input path environment variable, split and add invididual paths to 
 "paths" global to iterate through later when running an Other Command. */
 void getPaths(char* envStr) {
-    // Initialize each path string	
+	// Initialize each path string	
 	for(int i = 0; i < sizeof(paths)/sizeof(char*); i++)
 		paths[i] = malloc(50*sizeof(char));
 		
@@ -416,6 +426,7 @@ void getPaths(char* envStr) {
 	// 	printf("[getPaths]\tpaths[%d]: \"%s\"\n", k, paths[k]);
 
 	/* free(tempEnvStr); */
+
 }
 
 
