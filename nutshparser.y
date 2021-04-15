@@ -11,6 +11,9 @@
 #include "global.h"
 #include "colors.h"
 
+#define PIPE_READ_END 0
+#define PIPE_WRITE_END 1
+
 int yylex(void);
 int yyerror(char *s);
 /* Builtin commands */
@@ -274,7 +277,9 @@ int processCommand(void) {
 
 	getPaths(path_env);
 
-	
+	// Make some pipes
+	int pipefd[2]; // TODO must become an array of pipes
+	pipe(pipefd);
 
 	for(int commandIndex = 0; commandIndex < cmdTableSize; commandIndex++)
 	{
@@ -305,9 +310,6 @@ int processCommand(void) {
 			return 0;
 		}
 
-		// Make some pipes
-		int pipe[2]; // TODO must become an array of pipes
-
 		//TODO after one & command, we arnt waiting for the child to finish anymore 
 		// Make a new process
 		pid_t p = fork();
@@ -319,11 +321,13 @@ int processCommand(void) {
 		else if(p > 0) { 
 			// Parent process (nutshell)
 			// wait for child (unless we want it run in the foreground)
-			if(!background)
+			/* if(!background)
 			{
 				wait(NULL); // TODO is this it? Nano doesn't run in bkgd like in bash
-				//printf("We waited for process to finish.\n");
-			}
+				printf("Done waiting for child to finish.\n");
+			} */
+
+			// Do nothing, parent will wait after all children have been created.
 		}
 		else { // Child process (p==0)
 			cmdTable[commandIndex].argv[0] = command_with_path; // For execv to work, argv[0] needs to be the command name (for some unknown reason).
@@ -335,8 +339,6 @@ int processCommand(void) {
 			// 	printf("argList[%d]: \"%s\"\n", i, argList[i]);
 			// }
 			// printf("----------------\n");
-
-			
 
 			//////////////////////////////////////////////////////////////////////////////
 			// File I/O:
@@ -378,15 +380,45 @@ int processCommand(void) {
 				dup2(1, 2);
 			}
 
+			//////////////////////////////////////////////////////////////////////////////
+			// Connect to a pipe
+			//////////////////////////////////////////////////////////////////////////////
+			if(cmdTableSize > 1 && commandIndex == 0) {
+				// If this is the first command, direct its output to a pipe.
+				fprintf(stderr, GRN "Writing stdout to the pipe..." reset "\n");
+				dup2(pipefd[PIPE_WRITE_END], STDOUT_FILENO); // Replace stdin with pipe read end
+
+				// Close all pipes.
+				close(pipefd[PIPE_WRITE_END]);
+				/* close(pipefd[PIPE_READ_END]); // Close other end of pipe (write end) */
+			}
+			else if(cmdTableSize > 1 && commandIndex == cmdTableSize - 1) {
+				// If this is last command, direct input to pipe
+				fprintf(stderr, GRN "Reading stdin from pipe..." reset "\n");
+				dup2(pipefd[PIPE_READ_END], STDIN_FILENO);
+				
+				// Close all pipes.
+				close(pipefd[PIPE_READ_END]);
+				close(pipefd[PIPE_WRITE_END]); // close unused end of pipe
+			}
+
+			fprintf(stderr, "Executing...\n"); // TODO second child proc getting stuck here, is the pipe not closing properly?
+
 			// Execute command with args
 			execv(command_with_path, cmdTable[commandIndex].argv); 
 			
 			// No need to exit(0), execv does that for us.
-			// If we get to this point, execv didn't exit because it encountered a problem.
-			printf(RED "ERROR: Couldn't execute command." reset "\n");
+			printf(RED "ERROR: Command exited due to an error." reset "\n"); // If we get to this point, execv didn't exit because it encountered a problem.
 		}
 
 	} // end of for loop
+
+	// Close pipes
+	close(pipefd[PIPE_READ_END]);
+	close(pipefd[PIPE_WRITE_END]);
+
+	for(int i = 0; i < cmdTableSize; i++)
+		wait(NULL);
 
 	return 1;
 } // end of processCommand
