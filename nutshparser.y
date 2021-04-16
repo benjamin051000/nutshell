@@ -77,7 +77,11 @@ argument_list :
 										}
 										cmdTable[cmdTableSize].argc = 1;
 									}
-	| argument_list STRING          {$$ = $1; strcpy(cmdTable[cmdTableSize].argv[cmdTable[cmdTableSize].argc++], $2);}
+	| argument_list STRING          {		if(strlen($2) > 50) {
+												fprintf(stderr, RED "ERROR: Input parameter too long." reset "\n");
+												return 0;
+											}
+										$$ = $1; strcpy(cmdTable[cmdTableSize].argv[cmdTable[cmdTableSize].argc++], $2);}
 
 write_file:
 	%empty                          {strcpy(outputFile, "");}
@@ -249,6 +253,8 @@ int unsetAlias(char* name) {
 	for(int i = 0; i < aliasIndex; i++) // TODO this occasionally crashes
 	{
 		if(strcmp(aliasTable.name[i], name) == 0) {
+			printf("removing %s=%s...", aliasTable.name[i], aliasTable.word[i]);
+
 			//replace what needs to be removed with whats at the end of the list
 			strcpy(aliasTable.name[i], aliasTable.name[aliasIndex-1]); 
 			strcpy(aliasTable.word[i], aliasTable.word[aliasIndex-1]);
