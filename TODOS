@@ -1,1 +1,9 @@
-./test does not print error: Command/executable file not found
+
+expand env vars within "strings"
+
+using ~ prints ~ back for some reason
+tilde dont work
+
+//TODO after one & command, we arnt waiting for the child to finish anymore 
+
+add wildcards

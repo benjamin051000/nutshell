@@ -1,0 +1,2 @@
+/bin/cat: missing2.txt: No such file or directory
+hello world

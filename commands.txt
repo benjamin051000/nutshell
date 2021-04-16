@@ -1,0 +1,18 @@
+setenv PATH .:/bin:/usr/bin:/usr/local/bin:./
+alias a b
+alias c d
+alias
+unalias c
+alias b c
+alias c "echo test"
+cd ./testdir
+a
+unalias b
+alias
+pwd
+cd ..
+pwd
+cd /bin
+pwd
+cd ${HOME}
+bye
