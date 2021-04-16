@@ -7,13 +7,18 @@
 #include "global.h"
 #include "colors.h"
 
+/**
+ * bool to determine whether or not to expand an alias (unalias cmd should not expand aliases)
+ */
+int expand = 1;
+
 void yyerror(char*);
 // void yyerror(char* msg) {
 //     fprintf(stderr, RED "%s", msg);
 // }
 
 // Substitute the alias tokens with their expanded name.
-char* subAliases(char* name){
+char* subAliases(char* name) {
     for (int i = 0; i < aliasIndex; i++) {
         if(strcmp(aliasTable.name[i], name) == 0) {
             return aliasTable.word[i];
@@ -68,12 +73,12 @@ ANYCHAR            [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]+
 [ ]		            { }
 bye                 { return BYE; }
 cd		            { return CD;}
-alias		        { return ALIAS; }
-unalias             { return UNALIAS;}
-setenv              { return SETENV; }
-unsetenv            {return UNSETENV; }
+alias		        { expand = 0; return ALIAS; }
+unalias             { expand = 0; return UNALIAS;}
+setenv              { expand = 0; return SETENV; }
+unsetenv            { expand = 0; return UNSETENV; }
 printenv            { return PRINTENV; }
-"\n"		        { return END; }
+"\n"		        { expand = 1; return END; }
 &                   { return AMPERSAND; }
 \<                  { return LESS_THAN; }
 \>                  { return GREATER_THAN; }
@@ -82,7 +87,7 @@ printenv            { return PRINTENV; }
 2\>&1               { return STD_ERR_SYMB_2; }
 \|                  { return VERTBAR; }
 [\"]                { BEGIN(string_condition); }
-{CHAR}+             {if(ifAlias(yytext)) {
+{CHAR}+             {   if(expand && ifAlias(yytext)) {
                         //printf("yytext: %s\n", yytext);
                         //source: https://www.cs.princeton.edu/~appel/modern/c/software/flex/flex.html
                            char *yycopy = strdup( subAliases(yytext) );
@@ -100,7 +105,7 @@ $\{{CHAR}+\}        {
                         char* strbuff = malloc(sizeof(yycopy));
                         int pos = strcspn(yycopy, "}"); // find where end curly brace is                    
                         memcpy(strbuff, &yycopy[2], pos-2); // substring to get rid of "${}"
-                        printf("string: \"%s\"\n", strbuff);
+                        //printf("string: \"%s\"\n", strbuff);
 
                         if(ifVariable(strbuff)) {
                             char* varcopy = strdup(subVariable(strbuff));
