@@ -62,12 +62,35 @@ bool ifAlias(char* name){
 %x string_condition
 
 CHAR            [.A-Za-z0-9!\/_\-:]+
-ANYCHAR            [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]+
+ANYCHAR         [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]+
 
 %%
 
-<string_condition>{ANYCHAR}+     { yylval.string = strdup(yytext); return STRING;}
-<string_condition>$\{{CHAR}+\}   
+<string_condition>$\{{CHAR}+\}   {                     
+                                    char* yycopy = strdup(yytext);
+                                    char* strbuff = malloc(sizeof(yycopy));
+                                    int endCurly = strcspn(yycopy, "}"); // find where end curly brace is
+                                    int startCurly = strcspn(yycopy, "{");                  
+                                    memcpy(strbuff, &yycopy[startCurly+1], endCurly - startCurly - 1); // substring to get rid of "${}"
+                                    printf("string: \"%s\"\n", strbuff);
+
+                                    if(ifVariable(strbuff)) {
+                                        
+                                        char* varcopy = strdup(subVariable(strbuff));
+                                        for ( int i = strlen(subVariable(strbuff)) - 1; i >= 0; --i )
+                                            unput( varcopy[i] );
+                                        free( varcopy );
+                                        free(strbuff);
+                                    
+                                    // printf("DEBUG: variable is: \"%s\"\n", yytext);
+                                    }
+                                    else {
+                                        yyerror(RED "ERROR: Invalid environment variable." reset);
+                                        return STRING;
+                                        // TODO should we throw an error here, or try to run the command (and let it handle the err)?
+                                    }
+                                }
+<string_condition>{ANYCHAR}+     {yylval.string = strdup(yytext); return STRING;}
 <string_condition>[\"]          {BEGIN(INITIAL);}
 
 [ ]		            { }

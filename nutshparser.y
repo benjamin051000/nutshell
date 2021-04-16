@@ -95,7 +95,21 @@ standard_error:
 
 cmd_line :
 	%empty                               {return 1;}
-	| BYE END 		                	 {exit(1); return 1; }
+	| BYE END 		                	 {
+											// Free argv
+										    for(int i = 0; i < 50; i++) 
+											{
+												for(int j = 0; j < 50; j++)
+												{
+													free(cmdTable[i].argv[j]);           
+												}
+											}
+											// TODO remove
+											// for(int i = 0; i < numPaths; i++) {
+											// 	free(paths[i]);
+											// }
+											
+											exit(1); return 1; }
 	| CD STRING END        				 {runCD($2); return 1;}
 	| CD END                             {return runCD(varTable.word[1]);}
 	| ALIAS STRING STRING END			 {runSetAlias($2, $3); return 1;}
@@ -558,8 +572,10 @@ int processCommand(void) {
 	}
 
 	// Parent process: Wait for all children to complete.
-	for(int i = 0; i < cmdTableSize; i++)
-		wait(NULL);
+	for(int i = 0; i < cmdTableSize; i++) {
+		if(!background)
+			wait(NULL);
+	}
 
 	return 1;
 } // end of processCommand
