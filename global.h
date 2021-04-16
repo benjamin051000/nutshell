@@ -1,4 +1,4 @@
-#include "stdbool.h" // TODO unused in this file?
+#include "stdbool.h"
 #include <limits.h>
 
 // Environment variable table
@@ -14,7 +14,7 @@ struct aTable {
 };
 
 struct commandProperties {
-   char name[50]; // command name
+   char name[100]; // command name
    // args
    int argc;
    char* argv[50];
