@@ -397,6 +397,7 @@ int processCommand(void) {
 		};
 	}
 
+	// Iterate through each command in the pipeline.
 	for(int commandIndex = 0; commandIndex < cmdTableSize; commandIndex++)
 	{
 		
