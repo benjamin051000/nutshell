@@ -72,7 +72,7 @@ ANYCHAR         [)(*&%$#@!`;,\.a-zA-Z0-9'/*_=~ \-:]+
                                     int endCurly = strcspn(yycopy, "}"); // find where end curly brace is
                                     int startCurly = strcspn(yycopy, "{");                  
                                     memcpy(strbuff, &yycopy[startCurly+1], endCurly - startCurly - 1); // substring to get rid of "${}"
-                                    printf("string: \"%s\"\n", strbuff);
+                                    //printf("string: \"%s\"\n", strbuff);
 
                                     if(ifVariable(strbuff)) {
                                         

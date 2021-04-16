@@ -246,11 +246,11 @@ int unsetAlias(char* name) {
 
 	if(aliasIndex == 0) return 0;
 	
-	for(int i = 0; i < aliasIndex; i++)
+	for(int i = 0; i < aliasIndex; i++) // TODO this occasionally crashes
 	{
 		if(strcmp(aliasTable.name[i], name) == 0) {
 			//replace what needs to be removed with whats at the end of the list
-			strcpy(aliasTable.name[i], aliasTable.name[aliasIndex-1]);
+			strcpy(aliasTable.name[i], aliasTable.name[aliasIndex-1]); 
 			strcpy(aliasTable.word[i], aliasTable.word[aliasIndex-1]);
 			aliasIndex--;
 
