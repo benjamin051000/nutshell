@@ -1,4 +1,4 @@
-# COP4600 - Operating Systems
+# Operating Systems
 ## The Nutshell Term Project
 
 ### By John Shoemaker and Benjamin Wheeler
